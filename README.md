@@ -39,7 +39,8 @@ The key technical requirement is **preventing double-booking** of the same docto
 
 ## 3. Architecture Diagram
 
-![Architecture Diagram](Copy of AWS ARCh-Page-3.drawio.png)
+![Architecture Diagram](<img width="1351" height="1490" alt="Copy of AWS ARCh-Page-3 drawio" src="https://github.com/user-attachments/assets/cdc51ade-29d0-481d-9826-ea75ab7f6e8e" />
+)
 
 Editable source file: [`Copy of AWS ARCh.drawio (1).xml`](Copy of AWS ARCh.drawio (1).xml)
 
