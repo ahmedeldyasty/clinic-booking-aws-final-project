@@ -1,0 +1,212 @@
+{
+  "Project": "clinic-appointment-booking",
+  "Description": "Least-privilege IAM and resource policies for the multi-specialty clinic booking platform. Resource names use the 'clinic-' prefix.",
+  "Version": "1.0.0",
+  "Policies": [
+    {
+      "PolicyName": "ClinicEcsTaskRolePolicy",
+      "AttachTo": "ECS task role (application containers)",
+      "PolicyDocument": {
+        "Version": "2012-10-17",
+        "Statement": [
+          {
+            "Sid": "FilesBucketObjectAccess",
+            "Effect": "Allow",
+            "Action": ["s3:GetObject", "s3:PutObject"],
+            "Resource": "arn:aws:s3:::clinic-files-*/*"
+          },
+          {
+            "Sid": "FilesBucketList",
+            "Effect": "Allow",
+            "Action": "s3:ListBucket",
+            "Resource": "arn:aws:s3:::clinic-files-*"
+          },
+          {
+            "Sid": "SendNotificationJobs",
+            "Effect": "Allow",
+            "Action": ["sqs:SendMessage", "sqs:GetQueueUrl"],
+            "Resource": "arn:aws:sqs:*:*:clinic-notifications*"
+          },
+          {
+            "Sid": "UseEncryptionKey",
+            "Effect": "Allow",
+            "Action": ["kms:Decrypt", "kms:GenerateDataKey", "kms:DescribeKey"],
+            "Resource": "arn:aws:kms:*:*:key/*",
+            "Condition": {
+              "StringLike": { "kms:ViaService": ["s3.*.amazonaws.com", "sqs.*.amazonaws.com"] }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "PolicyName": "ClinicEcsTaskExecutionRolePolicy",
+      "AttachTo": "ECS task execution role",
+      "PolicyDocument": {
+        "Version": "2012-10-17",
+        "Statement": [
+          {
+            "Sid": "PullImages",
+            "Effect": "Allow",
+            "Action": [
+              "ecr:GetAuthorizationToken",
+              "ecr:BatchCheckLayerAvailability",
+              "ecr:GetDownloadUrlForLayer",
+              "ecr:BatchGetImage"
+            ],
+            "Resource": "*"
+          },
+          {
+            "Sid": "WriteContainerLogs",
+            "Effect": "Allow",
+            "Action": ["logs:CreateLogStream", "logs:PutLogEvents"],
+            "Resource": "arn:aws:logs:*:*:log-group:/ecs/clinic-*:*"
+          }
+        ]
+      }
+    },
+    {
+      "PolicyName": "ClinicLambdaNotificationRolePolicy",
+      "AttachTo": "Lambda execution role (notification processor)",
+      "PolicyDocument": {
+        "Version": "2012-10-17",
+        "Statement": [
+          {
+            "Sid": "ConsumeQueue",
+            "Effect": "Allow",
+            "Action": ["sqs:ReceiveMessage", "sqs:DeleteMessage", "sqs:GetQueueAttributes"],
+            "Resource": "arn:aws:sqs:*:*:clinic-notifications*"
+          },
+          {
+            "Sid": "PublishNotifications",
+            "Effect": "Allow",
+            "Action": "sns:Publish",
+            "Resource": "arn:aws:sns:*:*:clinic-*"
+          },
+          {
+            "Sid": "SendEmails",
+            "Effect": "Allow",
+            "Action": ["ses:SendEmail", "ses:SendRawEmail"],
+            "Resource": "*"
+          },
+          {
+            "Sid": "DecryptQueueMessages",
+            "Effect": "Allow",
+            "Action": ["kms:Decrypt"],
+            "Resource": "arn:aws:kms:*:*:key/*",
+            "Condition": {
+              "StringLike": { "kms:ViaService": "sqs.*.amazonaws.com" }
+            }
+          },
+          {
+            "Sid": "WriteLogs",
+            "Effect": "Allow",
+            "Action": ["logs:CreateLogGroup", "logs:CreateLogStream", "logs:PutLogEvents"],
+            "Resource": "arn:aws:logs:*:*:log-group:/aws/lambda/clinic-*:*"
+          }
+        ]
+      }
+    },
+    {
+      "PolicyName": "ClinicFilesBucketPolicy",
+      "AttachTo": "S3 bucket: clinic-files-*",
+      "PolicyDocument": {
+        "Version": "2012-10-17",
+        "Statement": [
+          {
+            "Sid": "DenyInsecureTransport",
+            "Effect": "Deny",
+            "Principal": "*",
+            "Action": "s3:*",
+            "Resource": ["arn:aws:s3:::clinic-files-*", "arn:aws:s3:::clinic-files-*/*"],
+            "Condition": { "Bool": { "aws:SecureTransport": "false" } }
+          },
+          {
+            "Sid": "DenyUnencryptedUploads",
+            "Effect": "Deny",
+            "Principal": "*",
+            "Action": "s3:PutObject",
+            "Resource": "arn:aws:s3:::clinic-files-*/*",
+            "Condition": { "StringNotEquals": { "s3:x-amz-server-side-encryption": "aws:kms" } }
+          }
+        ]
+      }
+    },
+    {
+      "PolicyName": "ClinicWebsiteBucketPolicy",
+      "AttachTo": "S3 bucket: clinic-website-*",
+      "PolicyDocument": {
+        "Version": "2012-10-17",
+        "Statement": [
+          {
+            "Sid": "AllowCloudFrontReadOnly",
+            "Effect": "Allow",
+            "Principal": { "Service": "cloudfront.amazonaws.com" },
+            "Action": "s3:GetObject",
+            "Resource": "arn:aws:s3:::clinic-website-*/*",
+            "Condition": {
+              "StringLike": { "AWS:SourceArn": "arn:aws:cloudfront::*:distribution/*" }
+            }
+          },
+          {
+            "Sid": "DenyInsecureTransport",
+            "Effect": "Deny",
+            "Principal": "*",
+            "Action": "s3:*",
+            "Resource": ["arn:aws:s3:::clinic-website-*", "arn:aws:s3:::clinic-website-*/*"],
+            "Condition": { "Bool": { "aws:SecureTransport": "false" } }
+          }
+        ]
+      }
+    },
+    {
+      "PolicyName": "ClinicSqsQueuePolicy",
+      "AttachTo": "SQS queue: clinic-notifications",
+      "PolicyDocument": {
+        "Version": "2012-10-17",
+        "Statement": [
+          {
+            "Sid": "DenyInsecureTransport",
+            "Effect": "Deny",
+            "Principal": "*",
+            "Action": "sqs:*",
+            "Resource": "arn:aws:sqs:*:*:clinic-notifications*",
+            "Condition": { "Bool": { "aws:SecureTransport": "false" } }
+          }
+        ]
+      }
+    },
+    {
+      "PolicyName": "ClinicCloudTrailBucketPolicy",
+      "AttachTo": "S3 bucket: clinic-cloudtrail-*",
+      "PolicyDocument": {
+        "Version": "2012-10-17",
+        "Statement": [
+          {
+            "Sid": "AllowCloudTrailAclCheck",
+            "Effect": "Allow",
+            "Principal": { "Service": "cloudtrail.amazonaws.com" },
+            "Action": "s3:GetBucketAcl",
+            "Resource": "arn:aws:s3:::clinic-cloudtrail-*"
+          },
+          {
+            "Sid": "AllowCloudTrailWrite",
+            "Effect": "Allow",
+            "Principal": { "Service": "cloudtrail.amazonaws.com" },
+            "Action": "s3:PutObject",
+            "Resource": "arn:aws:s3:::clinic-cloudtrail-*/AWSLogs/*",
+            "Condition": { "StringEquals": { "s3:x-amz-acl": "bucket-owner-full-control" } }
+          },
+          {
+            "Sid": "DenyInsecureTransport",
+            "Effect": "Deny",
+            "Principal": "*",
+            "Action": "s3:*",
+            "Resource": ["arn:aws:s3:::clinic-cloudtrail-*", "arn:aws:s3:::clinic-cloudtrail-*/*"],
+            "Condition": { "Bool": { "aws:SecureTransport": "false" } }
+          }
+        ]
+      }
+    }
+  ]
+}
